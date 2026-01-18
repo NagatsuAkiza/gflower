@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <title>Flower</title>
+        <!-- Google Fonts -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Quicksand:wght@300;400;500&display=swap"
+            rel="stylesheet" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            html,
+            body {
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                background: linear-gradient(180deg, #1a0a10 0%, #2d1520 50%, #1a0a10 100%);
+                font-family: "Quicksand", "Georgia", sans-serif;
+                cursor: grab;
+                -webkit-tap-highlight-color: transparent;
+                touch-action: none;
+            }
+
+            body:active {
+                cursor: grabbing;
+            }
+
+            #canvas-container {
+                width: 100vw;
+                height: 100vh;
+                height: 100dvh; /* Dynamic viewport height for mobile */
+                position: fixed;
+                top: 0;
+                left: 0;
+                transition: filter 0.8s ease;
+            }
+
+            #canvas-container.blur {
+                filter: blur(8px);
+            }
+
+            .loading-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                height: 100dvh;
+                background: rgba(0, 0, 0, 0.3);
+                z-index: 99;
+                opacity: 1;
+                transition: opacity 0.8s ease;
+                pointer-events: all;
+            }
+
+            .loading-overlay.hidden {
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            .loading {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                color: #ffb7c5;
+                font-size: 1.2rem;
+                z-index: 100;
+                opacity: 1;
+                transition: opacity 0.8s ease;
+                text-align: center;
+            }
+
+            .loading-title {
+                font-family: "Cormorant Garamond", Georgia, serif;
+                font-size: 1.8rem;
+                font-weight: 500;
+                font-style: italic;
+                letter-spacing: 2px;
+                margin-top: 12px;
+                color: #fff0f3;
+            }
+
+            .loading-subtitle {
+                font-size: 0.9rem;
+                margin-top: 8px;
+                opacity: 0.8;
+            }
+
+            .made-by {
+                font-family: "Cormorant Garamond", Georgia, serif;
+                font-size: 0.85rem;
+                font-style: italic;
+                margin-top: 20px;
+                opacity: 0.7;
+                color: #ffd0d9;
+            }
+
+            .made-by .heart {
+                color: #ff6b8a;
+                animation: heartbeat 1.2s ease-in-out infinite;
+            }
+
+            @keyframes heartbeat {
+                0%,
+                100% {
+                    transform: scale(1);
+                }
+                50% {
+                    transform: scale(1.2);
+                }
+            }
+
+            .loading.hidden {
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            .loading-icon {
+                animation: pulse 1s ease-in-out infinite;
+            }
+
+            @keyframes pulse {
+                0%,
+                100% {
+                    transform: scale(1);
+                }
+                50% {
+                    transform: scale(1.1);
+                }
+            }
+
+            .loading-bar {
+                width: 120px;
+                height: 4px;
+                background: rgba(255, 183, 197, 0.3);
+                border-radius: 2px;
+                margin-top: 15px;
+                margin-left: auto;
+                margin-right: auto;
+                overflow: hidden;
+            }
+
+            .loading-bar-fill {
+                width: 0%;
+                height: 100%;
+                background: linear-gradient(90deg, #ffb7c5, #ff8fa3);
+                border-radius: 2px;
+                transition: width 0.1s linear;
+            }
+
+            .hint {
+                position: fixed;
+                bottom: 25px;
+                left: 50%;
+                transform: translateX(-50%);
+                color: rgba(255, 183, 197, 0.9);
+                font-size: 0.85rem;
+                z-index: 50;
+                text-align: center;
+                pointer-events: auto;
+                background: rgba(0, 0, 0, 0.5);
+                padding: 12px 20px;
+                border-radius: 20px;
+                backdrop-filter: blur(5px);
+                -webkit-backdrop-filter: blur(5px);
+                cursor: pointer;
+                transition:
+                    opacity 0.5s ease,
+                    transform 0.5s ease;
+                max-width: 90vw;
+            }
+
+            .hint:hover {
+                background: rgba(0, 0, 0, 0.6);
+            }
+
+            .hint.hidden {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+                pointer-events: none;
+            }
+
+            .hint-content {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .hint-item {
+                display: inline-block;
+                white-space: nowrap;
+            }
+
+            .hint .separator {
+                opacity: 0.4;
+            }
+
+            .hint-close {
+                display: block;
+                margin-top: 8px;
+                font-size: 0.7rem;
+                opacity: 0.6;
+            }
+
+            /* Responsive styles for mobile */
+            @media screen and (max-width: 768px) {
+                .hint {
+                    bottom: 15px;
+                    font-size: 0.75rem;
+                    padding: 10px 15px;
+                    border-radius: 15px;
+                    max-width: 95vw;
+                }
+
+                .hint-content {
+                    flex-direction: column;
+                    gap: 4px;
+                }
+
+                .hint .separator {
+                    display: none;
+                }
+
+                .hint-close {
+                    margin-top: 6px;
+                    font-size: 0.65rem;
+                }
+            }
+
+            @media screen and (max-width: 480px) {
+                .hint {
+                    bottom: 10px;
+                    font-size: 0.7rem;
+                    padding: 8px 12px;
+                }
+            }
+
+            /* Landscape mode on mobile */
+            @media screen and (max-height: 500px) and (orientation: landscape) {
+                .hint {
+                    bottom: 8px;
+                    padding: 6px 12px;
+                    font-size: 0.65rem;
+                }
+
+                .hint-content {
+                    flex-direction: row;
+                    gap: 10px;
+                }
+
+                .hint .separator {
+                    display: inline;
+                }
+
+                .hint-close {
+                    display: none;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="loading-overlay" id="loading-overlay"></div>
+        <div class="loading" id="loading">
+            <div style="font-size: 2.5rem" class="loading-icon">🌸</div>
+            <div class="loading-title">Blooming Flower</div>
+            <div class="loading-subtitle">Loading...</div>
+            <div class="loading-bar">
+                <div class="loading-bar-fill" id="loading-bar-fill"></div>
+            </div>
+            <div class="made-by">made by akiza <span class="heart">♥</span></div>
+        </div>
+
+        <div class="hint" id="hint" onclick="this.classList.add('hidden')">
+            <div class="hint-content">
+                <span class="hint-item">👆 Drag / Swipe to rotate</span>
+                <span class="separator">|</span>
+                <span class="hint-item">🔍 Pinch / Scroll to zoom</span>
+                <span class="separator">|</span>
+                <span class="hint-item">🌸 Tap flower to bloom</span>
+            </div>
+            <span class="hint-close">Tap to dismiss</span>
+        </div>
+
+        <div id="canvas-container"></div>
+
+        <!-- Three.js from CDN -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+        <script src="main.js"></script>
+    </body>
+</html>
