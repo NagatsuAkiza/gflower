@@ -101,8 +101,8 @@ function init() {
     // Add blur to canvas during loading
     document.getElementById("canvas-container").classList.add("blur");
 
-    // Setup BGM
-    bgm = new Audio("bgm.mp3");
+    // Setup BGM from Cloudinary
+    bgm = new Audio("https://res.cloudinary.com/dtcntewyc/video/upload/v1768716630/bgm_ymxeci.mp3");
     bgm.loop = true;
     bgm.volume = 0.5;
     window.bgm = bgm; // Make globally accessible for entrance screen
