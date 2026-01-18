@@ -11,6 +11,18 @@ let flower;
 let fallingPetals = [];
 let clouds = [];
 let raycaster, mouse;
+let bgm; // Background music
+
+// Wind effect parameters
+const wind = {
+    strength: 0,
+    targetStrength: 0,
+    direction: 0,
+    gustTimer: 0,
+    gustInterval: 3 + Math.random() * 4, // Random interval between gusts
+    maxStrength: 0.15,
+    minStrength: 0.02
+};
 
 const colors = {
     petalTip: 0xfff5f8,
@@ -89,7 +101,20 @@ function init() {
     // Add blur to canvas during loading
     document.getElementById("canvas-container").classList.add("blur");
 
-    // Animate loading bar and hide after 2 seconds
+    // Setup BGM
+    bgm = new Audio("bgm.mp3");
+    bgm.loop = true;
+    bgm.volume = 0.5;
+    window.bgm = bgm; // Make globally accessible for entrance screen
+
+    // Make startLoading globally accessible
+    window.startLoading = startLoading;
+
+    animate();
+}
+
+// Loading bar animation - called when user clicks enter
+function startLoading() {
     const loadingBarFill = document.getElementById("loading-bar-fill");
     const loadingDuration = 2000; // 2 seconds
     const startTime = Date.now();
@@ -106,11 +131,12 @@ function init() {
             document.getElementById("loading").classList.add("hidden");
             document.getElementById("loading-overlay").classList.add("hidden");
             document.getElementById("canvas-container").classList.remove("blur");
+
+            // Start BGM after loading (requires user interaction first)
+            startBGM();
         }
     }
     updateLoadingBar();
-
-    animate();
 }
 
 // ============================================
@@ -1001,6 +1027,7 @@ function animate() {
     requestAnimationFrame(animate);
 
     const time = clock.getElapsedTime();
+    const deltaTime = clock.getDelta();
 
     raycaster.setFromCamera(mouse, camera);
     const head = flower.getObjectByName("flowerHead");
@@ -1016,29 +1043,17 @@ function animate() {
     window.bloomProgress += (window.targetBloom - window.bloomProgress) * 0.035;
     updateBloom(window.bloomProgress);
 
-    flower.rotation.x = Math.sin(time * 0.15) * 0.004;
-    flower.rotation.z = Math.cos(time * 0.12) * 0.003;
+    // Update wind effect
+    updateWind(deltaTime || 0.016);
 
-    fallingPetals.forEach((p) => {
-        p.position.add(p.userData.vel);
-        p.position.x += Math.sin(time + p.userData.phase) * 0.0005;
-        p.rotation.x += p.userData.rot.x;
-        p.rotation.y += p.userData.rot.y;
-        if (p.position.y < -0.1) {
-            p.position.y = 5;
-            p.position.x = (Math.random() - 0.5) * 6;
-            p.position.z = (Math.random() - 0.5) * 5;
-        }
-    });
+    // Apply wind to flower (replaces old flower rotation)
+    applyWindToFlower(time);
 
-    // Animate clouds - slow drift
-    clouds.forEach((cloud) => {
-        cloud.userData.angle += cloud.userData.speed * 0.01;
-        cloud.position.x = Math.cos(cloud.userData.angle) * cloud.userData.radius;
-        cloud.position.z = Math.sin(cloud.userData.angle) * cloud.userData.radius;
-        // Gentle vertical bob
-        cloud.position.y = cloud.userData.baseY + Math.sin(time * 0.1 + cloud.userData.angle) * 0.5;
-    });
+    // Apply wind to falling petals (replaces old petal animation)
+    applyWindToPetals(time);
+
+    // Apply wind to clouds (replaces old cloud animation)
+    applyWindToClouds(time);
 
     renderer.render(scene, camera);
 }
@@ -1084,6 +1099,124 @@ function onTouchEnd(e) {
             }
         }
     }
+}
+
+// ============================================
+// BACKGROUND MUSIC
+// ============================================
+function startBGM() {
+    // Make bgm globally accessible for entrance screen\n    window.bgm = bgm;
+    // Try to play (will work after user clicks entrance screen)
+    bgm.play().catch(() => {});
+}
+
+// Setup immediate BGM play on any user interaction
+function setupImmediateBGM() {
+    const tryPlay = () => {
+        if (bgm && bgm.paused) {
+            bgm.play().catch(() => {});
+        }
+    };
+
+    // Listen for any interaction to start music
+    ["click", "touchstart", "keydown", "mousemove", "scroll"].forEach((event) => {
+        document.addEventListener(event, tryPlay, { once: true });
+    });
+
+    // Also try on visibility change
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden && bgm && bgm.paused) {
+            bgm.play().catch(() => {});
+        }
+    });
+}
+
+// Initialize BGM listeners immediately
+document.addEventListener("DOMContentLoaded", setupImmediateBGM);
+
+// ============================================
+// WIND EFFECT
+// ============================================
+function updateWind(deltaTime) {
+    // Update gust timer
+    wind.gustTimer += deltaTime;
+
+    // Trigger random wind gusts
+    if (wind.gustTimer >= wind.gustInterval) {
+        wind.gustTimer = 0;
+        wind.gustInterval = 3 + Math.random() * 5; // 3-8 seconds between gusts
+        wind.targetStrength =
+            wind.minStrength + Math.random() * (wind.maxStrength - wind.minStrength);
+        wind.direction = Math.random() * Math.PI * 2; // Random direction
+    }
+
+    // Smoothly interpolate wind strength
+    wind.strength += (wind.targetStrength - wind.strength) * 0.02;
+
+    // Gradually reduce wind
+    wind.targetStrength *= 0.995;
+    if (wind.targetStrength < wind.minStrength) {
+        wind.targetStrength = wind.minStrength * 0.5;
+    }
+}
+
+function applyWindToFlower(time) {
+    if (!flower) return;
+
+    const windX = Math.cos(wind.direction) * wind.strength;
+    const windZ = Math.sin(wind.direction) * wind.strength;
+
+    // Apply wind sway to main flower
+    flower.rotation.x = Math.sin(time * 0.15) * 0.004 + windX * 0.5;
+    flower.rotation.z = Math.cos(time * 0.12) * 0.003 + windZ * 0.5;
+
+    // Add subtle secondary motion
+    const gustEffect = Math.sin(time * 2) * wind.strength * 0.3;
+    flower.rotation.x += gustEffect;
+}
+
+function applyWindToPetals(time) {
+    fallingPetals.forEach((p) => {
+        // Base velocity
+        p.position.add(p.userData.vel);
+
+        // Wind effect on falling petals - stronger influence
+        const windInfluence = wind.strength * 2;
+        p.position.x += Math.cos(wind.direction) * windInfluence * 0.02;
+        p.position.z += Math.sin(wind.direction) * windInfluence * 0.02;
+
+        // Original swaying motion + enhanced wind turbulence
+        const turbulence = wind.strength * 3;
+        p.position.x += Math.sin(time + p.userData.phase) * 0.0005 * (1 + turbulence);
+        p.position.x += Math.sin(time * 2 + p.userData.phase * 1.5) * 0.0003 * turbulence;
+        p.position.z += Math.cos(time * 1.5 + p.userData.phase) * 0.0003 * turbulence;
+
+        // Wind affects rotation more dramatically
+        p.rotation.x += p.userData.rot.x * (1 + wind.strength * 5);
+        p.rotation.y += p.userData.rot.y * (1 + wind.strength * 3);
+        p.rotation.z += Math.sin(time + p.userData.phase) * wind.strength * 0.05;
+
+        // Reset when fallen
+        if (p.position.y < -0.1) {
+            p.position.y = 5;
+            p.position.x = (Math.random() - 0.5) * 6;
+            p.position.z = (Math.random() - 0.5) * 5;
+        }
+    });
+}
+
+function applyWindToClouds(time) {
+    clouds.forEach((cloud) => {
+        // Original movement + wind influence
+        cloud.userData.angle += cloud.userData.speed * 0.01 + wind.strength * 0.005;
+        cloud.position.x = Math.cos(cloud.userData.angle) * cloud.userData.radius;
+        cloud.position.z = Math.sin(cloud.userData.angle) * cloud.userData.radius;
+        // Gentle vertical bob + wind lift
+        cloud.position.y =
+            cloud.userData.baseY +
+            Math.sin(time * 0.1 + cloud.userData.angle) * 0.5 +
+            wind.strength * 0.5;
+    });
 }
 
 window.addEventListener("load", init);

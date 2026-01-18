@@ -1,0 +1,7 @@
+# Large audio files
+bgm.wav
+bgm.mp3
+
+# OS files
+.DS_Store
+Thumbs.db
