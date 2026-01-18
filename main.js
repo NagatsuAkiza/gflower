@@ -67,12 +67,15 @@ function init() {
     // Closer camera with narrower FOV for more intimate view
     camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.5, 200);
 
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Soft shadows
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.1;
+    renderer.outputEncoding = THREE.sRGBEncoding; // Proper color space
+    renderer.physicallyCorrectLights = true; // Realistic light falloff
     document.getElementById("canvas-container").appendChild(renderer.domElement);
 
     clock = new THREE.Clock();
@@ -102,7 +105,7 @@ function init() {
     document.getElementById("canvas-container").classList.add("blur");
 
     // Setup BGM from Cloudinary
-    bgm = new Audio("https://res.cloudinary.com/dtcntewyc/video/upload/v1768716630/bgm_ymxeci.mp3");
+    bgm = new Audio("bgm.ogg");
     bgm.loop = true;
     bgm.volume = 0.5;
     window.bgm = bgm; // Make globally accessible for entrance screen
@@ -243,29 +246,48 @@ function setupOrbitControls() {
 }
 
 // ============================================
-// WARM LIGHTING
+// WARM LIGHTING - Realistic Setup
 // ============================================
 function setupLighting() {
-    // Warm ambient
-    scene.add(new THREE.AmbientLight(0xfff8e7, 0.6));
+    // Hemisphere light for natural sky/ground ambient
+    const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x3d5c3d, 0.4);
+    hemiLight.position.set(0, 50, 0);
+    scene.add(hemiLight);
 
-    // Golden sun light
-    const sun = new THREE.DirectionalLight(0xffd89b, 1.2);
-    sun.position.set(3, 8, 5);
+    // Soft ambient for fill
+    scene.add(new THREE.AmbientLight(0xfff8e7, 0.3));
+
+    // Main sun light - golden hour
+    const sun = new THREE.DirectionalLight(0xffd89b, 2.5);
+    sun.position.set(5, 10, 7);
     sun.castShadow = true;
-    sun.shadow.mapSize.width = 1024;
-    sun.shadow.mapSize.height = 1024;
+    sun.shadow.mapSize.width = 2048;
+    sun.shadow.mapSize.height = 2048;
+    sun.shadow.camera.near = 0.5;
+    sun.shadow.camera.far = 50;
+    sun.shadow.camera.left = -10;
+    sun.shadow.camera.right = 10;
+    sun.shadow.camera.top = 10;
+    sun.shadow.camera.bottom = -10;
+    sun.shadow.bias = -0.0001;
+    sun.shadow.normalBias = 0.02;
+    sun.shadow.radius = 2; // Soft shadow edges
     scene.add(sun);
 
-    // Warm fill light
-    const fill = new THREE.DirectionalLight(0xffb347, 0.4);
-    fill.position.set(-5, 3, -3);
-    scene.add(fill);
+    // Secondary warm fill light (bounce light simulation)
+    const fillLight = new THREE.DirectionalLight(0xffb347, 0.8);
+    fillLight.position.set(-5, 3, -3);
+    scene.add(fillLight);
 
-    // Subtle rim light
-    const rim = new THREE.DirectionalLight(0xffecd2, 0.3);
-    rim.position.set(0, 5, -5);
-    scene.add(rim);
+    // Rim/back light for depth separation
+    const rimLight = new THREE.DirectionalLight(0xffecd2, 0.6);
+    rimLight.position.set(0, 5, -8);
+    scene.add(rimLight);
+
+    // Ground bounce light (simulates light reflecting from ground)
+    const bounceLight = new THREE.DirectionalLight(0xffecd2, 0.3);
+    bounceLight.position.set(0, -2, 3);
+    scene.add(bounceLight);
 }
 
 // ============================================
